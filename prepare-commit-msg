@@ -1,0 +1,70 @@
+#!/bin/bash
+# Checks for core hacks.
+# Include this in your project as .git/hooks/prepare-commit-msg
+# Source: https://www.drupal.org/forum/support/module-development-and-code-questions/2013-07-31/using-git-pre-commit-hooks-to-prevent
+
+# All you have to do to allow this is to flag your commit message with the text
+# "CORE HACK" in caps, and it will go through.
+# If your message does not contain that string, it will be rejected.
+
+WARNING_MESSAGE="CORE HACK";
+
+red=`tput setaf 1`
+green=`tput setaf 2`
+reset=`tput sgr0`
+# echo "${red}red text ${green}green text${reset}"
+
+echo "Running pre-commit hook to check if you are being silly";
+
+# $1 is the filename where the text of the message is currently held
+if grep "$WARNING_MESSAGE" $1 ; then
+  made_excuse=1
+fi
+
+COMMIT_MESSAGE=$(cat $1)
+ISSUE_NUMBER=0;
+
+# issue prefix is `TG-` for Taiga. might be `#` for Gitlab or Github.
+if grep "TG-" $1 ; then
+  echo "${green}[OK]${reset} Wow I'm happy that you are writing the issue number."
+  ISSUE_NUMBER=$(echo $COMMIT_MESSAGE | grep -Eo '[0-9]+$')
+  else
+  echo "${red}[FAIL]${reset} WRITE THE ISSUE NUMBER PLEASE."
+  exit 1
+fi
+
+echo "ISSUE:" $ISSUE_NUMBER
+
+# Check the files being committed.
+git diff --cached --name-status | while read st file; do
+  # Skip deleted files.
+  if [ "$st" == 'D' ]; then continue; fi
+
+  #echo "You are working on file: $file";
+  bad_boy=0;
+  # This list is short and rough just to spot the worst offenders.
+  # Things in root dir are your own call.
+  for pattern in "^includes" "^modules" "^misc" "^themes" ; do
+
+    if [[ $file =~ $pattern ]] ; then
+      echo "${red}[FAIL] ${reset} BAD BOY - Don't hack core."
+      echo "The file change you propose to $file is in the path $pattern . I won't allow that."
+      bad_boy=1;
+    fi
+
+  done
+
+  if (( $bad_boy == 1 )); then
+    if [ $made_excuse ] ; then
+      echo "Well, OK. Just this once then"
+    else
+      echo "${red}[FAIL] ${reset} Sorry there is error in your git message."
+      echo "If you can figure out how to turn off this warning, then I'll trust you know what you are doing."
+      echo "Until then, this commit will not go in."
+      exit 1
+    fi
+  fi
+
+done
+
+GIT_USERNAME=$(git config user.name)
