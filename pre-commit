@@ -62,6 +62,31 @@ echo
 # Get hook directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+FILELIST=$( git diff --name-only )
+for file in $FILELIST
+do
+  token_text=$(grep -rEwo '[a-z0-9]{32,100}' $file)
+  token_detect=$(grep -rEwo '[a-z0-9]{32,100}' $file |wc -l)
+  if [ "$token_detect" -gt "0" ]; then
+    echo "************************************************************************"
+    echo "*                                                                      *"
+    echo "* filename: " $file
+    echo "* is this a token? (" $token_text ")"
+    echo "*                                                                      *"
+    echo "************************************************************************"
+
+    echo "We suspect this file has a token. does this a secret key or a secret token? (y/n)"
+    read _isToken
+    echo ""
+    echo ""
+    if [[ $_isToken =~ [yY](es)* ]]
+    then
+      echo "The commit has been aborted. Please remove this token and try again!"
+      clean_exit
+    fi
+  fi
+done
+
 # Build the list of PHP blacklisted functions
 checks[1]="\<var_dump("
 checks[2]="\<print_r("
